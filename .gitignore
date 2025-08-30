@@ -1,0 +1,49 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# PyCharm / VSCode / IDE configs
+.vscode/
+.idea/
+
+# Logs
+*.log
+logs/
+*.out
+*.err
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Build / distribution
+build/
+dist/
+*.egg-info/
+
+# Data files (optional – keep only if not needed in repo)
+*.csv
+*.tsv
+*.xlsx
+*.xls
+*.dta
+*.sav
+
+# Model files
+*.pkl
+*.h5
+*.joblib
+
+# Environment files
+*.env
