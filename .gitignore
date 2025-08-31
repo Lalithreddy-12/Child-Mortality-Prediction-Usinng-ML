@@ -1,4 +1,6 @@
-# Byte-compiled / cache
+# ----------------------
+# Python basics
+# ----------------------
 __pycache__/
 *.py[cod]
 *.pyo
@@ -12,9 +14,8 @@ env/
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints
-*.nbconvert.ipynb
 
-# PyCharm / VSCode / IDE configs
+# IDE configs
 .vscode/
 .idea/
 
@@ -24,7 +25,7 @@ logs/
 *.out
 *.err
 
-# OS specific files
+# OS specific
 .DS_Store
 Thumbs.db
 
@@ -33,27 +34,90 @@ build/
 dist/
 *.egg-info/
 
-# Data files (optional – keep only if not needed in repo)
+# Environment/config files
+*.env
+*.ini
+*.cfg
+
+# ----------------------
+# Data files
+# ----------------------
 *.csv
 *.tsv
 *.xlsx
 *.xls
 *.dta
 *.sav
-
-# Model files
-*.pkl
+*.parquet
+*.feather
+*.hdf5
 *.h5
-*.joblib
+*.jsonl
 
-# Environment files
-*.env
+# ----------------------
+# ML / DL Framework Artifacts
+# ----------------------
 
-# Testing / coverage
-.coverage
-htmlcov/
-.tox/
-.pytest_cache/
-
-# Ignore CatBoost training logs
+# CatBoost
 catboost_info/
+catboost_training.json
+catboost_training.*
+
+# LightGBM
+lightgbm_dataset_*
+lightgbm_model.txt
+
+# XGBoost
+xgboost_model.json
+xgboost_model.txt
+xgboost_*.bin
+
+# TensorFlow / Keras
+checkpoint
+checkpoints/
+*.ckpt
+*.ckpt.*
+*.pb
+events.out.tfevents.*
+saved_model/
+
+# PyTorch
+*.pt
+*.pth
+*.ptl
+
+# Scikit-learn / Joblib models
+*.joblib
+*.pkl
+
+# HuggingFace Transformers
+*.bin
+*.safetensors
+*.json  # config.json, tokenizer.json
+*.txt   # vocab.txt
+runs/
+cache/
+hf_cache/
+transformers_cache/
+
+# MLflow
+mlruns/
+mlartifacts/
+
+# Weights & Biases
+wandb/
+
+# Ray / Tune / Optuna
+ray_results/
+tune_results/
+optuna_study.db
+
+# ----------------------
+# Other common large files
+# ----------------------
+*.tar
+*.gz
+*.zip
+*.7z
+*.npz
+*.npy

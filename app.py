@@ -34,6 +34,55 @@ def _build_input_df(data):
     except Exception as e:
         raise ValueError(f"Invalid input format or missing field: {e}")
 
+# ✅ Survival plan recommender
+def survival_plan(prediction, features=None):
+    """
+    Returns a JSON-serializable plan object.
+    For low risk -> {'message': '...'}
+    For high risk -> {'years': { 'Year 0-1': [...], ... }}
+    """
+    if int(prediction) == 0:
+        return {
+            "risk_level": "low",
+            "message": "Low risk. Continue preventive care: vaccines, nutrition, safe environment."
+        }
+    else:
+        return {
+            "risk_level": "high",
+            "years": {
+                "Year 0-1": [
+                    "Exclusive breastfeeding",
+                    "Routine vaccinations (per national schedule)",
+                    "Monthly pediatric check-ups",
+                    "Safe sleep & clean water"
+                ],
+                "Year 1-2": [
+                    "Introduce diverse solid foods (iron-rich)",
+                    "Measles/MMR vaccination as scheduled",
+                    "Monitor growth & anemia screening",
+                    "Oral rehydration plan for diarrhea"
+                ],
+                "Year 2-3": [
+                    "Vitamin A supplementation if recommended",
+                    "Safe play environment & injury prevention",
+                    "Screen for malnutrition & deworming if indicated",
+                    "Hygiene: handwashing & safe sanitation"
+                ],
+                "Year 3-4": [
+                    "Preschool enrolment / early stimulation",
+                    "Annual vision & dental checkups",
+                    "Sleep routine, physical activity",
+                    "Update any missed vaccines"
+                ],
+                "Year 4-5": [
+                    "Booster immunizations (per schedule)",
+                    "Balanced diet with regular growth monitoring",
+                    "School readiness support & mental wellbeing",
+                    "Emergency care plan (fever, respiratory issues)"
+                ]
+            }
+        }
+
 @app.route("/api/predict", methods=["POST"])
 def predict():
     global model
@@ -49,21 +98,26 @@ def predict():
     except ValueError as e:
         return jsonify({"error": "Invalid input format", "details": str(e)}), 400
 
-    # Use predict_proba only if available
+    # Probability (if model supports it)
     prob = None
     if hasattr(model, "predict_proba"):
         prob = float(model.predict_proba(df)[:, 1][0])
 
     pred = int(model.predict(df)[0])
-    return jsonify({
+    plan_obj = survival_plan(pred, df.iloc[0].to_dict())
+
+    response = {
         "mortality_risk_probability": prob,
         "mortality_prediction": pred,
-        "interpretation": "1 means higher predicted risk, 0 means lower predicted risk"
-    })
+        "interpretation": "1 means higher predicted risk, 0 means lower predicted risk",
+        # Always include survival_plan to make frontend simpler
+        "survival_plan": plan_obj,
+        "debug": {"branch": "high" if pred == 1 else "low"}
+    }
+    return jsonify(response)
 
 @app.route("/api/accuracy", methods=["GET"])
 def accuracy():
-    import pandas as pd
     from sklearn.metrics import accuracy_score
     try:
         df = pd.read_csv("models/sample_input.csv")  # small sample or replace with your dataset
@@ -119,19 +173,23 @@ def explain():
         if vals.ndim > 1:
             vals = vals[0]
 
-        feature_contribs = {
-            col: float(val) for col, val in zip(df.columns, vals)
-        }
+        feature_contribs = {col: float(val) for col, val in zip(df.columns, vals)}
 
         probability = None
         if hasattr(model, "predict_proba"):
             probability = float(model.predict_proba(df)[:, 1][0])
 
+        pred = int(model.predict(df)[0])
+        plan_obj = survival_plan(pred, df.iloc[0].to_dict())
+
         return jsonify({
             "features": feature_contribs,
-            "prediction": int(model.predict(df)[0]),
+            "prediction": pred,
             "probability": probability,
-            "interpretation": "Positive SHAP value = pushes towards higher risk"
+            "interpretation": "Positive SHAP value = pushes towards higher risk",
+            # Also include the survival plan here
+            "survival_plan": plan_obj,
+            "debug": {"branch": "high" if pred == 1 else "low"}
         })
 
     except Exception as e:
@@ -139,4 +197,5 @@ def explain():
 
 
 if __name__ == "__main__":
+    # If you’re using a frontend on a different origin, consider enabling CORS.
     app.run(host="0.0.0.0", port=8000, debug=True)
