@@ -1,10 +1,10 @@
 # Core
-numpy==2.2.6
+numpy==1.26.4
 pandas==2.3.2
-scikit-learn==1.7.1
+scikit-learn==1.5.2
 scipy==1.16.1
 joblib==1.5.1
-imbalanced-learn==0.12.4  # instead of imblearn==0.0
+imbalanced-learn==0.12.3  # instead of imblearn==0.0
 
 # Models
 xgboost==2.1.2

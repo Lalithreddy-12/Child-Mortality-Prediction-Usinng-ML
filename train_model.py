@@ -59,19 +59,35 @@ print(f"\n✅ Best RandomForest params: {rf_grid.best_params_}")
 # =======================
 # XGBoost tuning
 # =======================
+from xgboost import XGBClassifier
+from sklearn.model_selection import GridSearchCV
+
+# Faster, modern XGB setup
 xgb = XGBClassifier(
     eval_metric="logloss",
     random_state=42,
-    use_label_encoder=False
+    tree_method="hist",   # MUCH faster
+    n_jobs=-1             # use all CPU cores
 )
+
 xgb_params = {
     "n_estimators": [100, 200],
     "max_depth": [3, 6, 10],
     "learning_rate": [0.05, 0.1, 0.2],
     "subsample": [0.7, 0.9],
 }
-xgb_grid = GridSearchCV(xgb, xgb_params, cv=5, scoring="accuracy", n_jobs=-1, verbose=1)
-xgb_grid.fit(X_train, y_train)
+
+xgb_grid = GridSearchCV(
+    xgb,
+    xgb_params,
+    cv=5,                 
+    scoring="accuracy",
+    n_jobs=-1,
+    verbose=1
+)
+
+xgb_grid.fit(X_train.values, y_train.values)   # convert pandas → numpy
+
 best_xgb = xgb_grid.best_estimator_
 print(f"\n✅ Best XGBoost params: {xgb_grid.best_params_}")
 
