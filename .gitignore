@@ -47,3 +47,6 @@ dist/
 
 # Environment files
 *.env
+
+# Ignore CatBoost training logs
+catboost_info/
