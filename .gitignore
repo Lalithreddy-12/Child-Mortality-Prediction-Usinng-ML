@@ -12,6 +12,7 @@ env/
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints
+*.nbconvert.ipynb
 
 # PyCharm / VSCode / IDE configs
 .vscode/
@@ -47,6 +48,12 @@ dist/
 
 # Environment files
 *.env
+
+# Testing / coverage
+.coverage
+htmlcov/
+.tox/
+.pytest_cache/
 
 # Ignore CatBoost training logs
 catboost_info/
