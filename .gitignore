@@ -121,3 +121,6 @@ optuna_study.db
 *.7z
 *.npz
 *.npy
+
+Files to ignore
+test.py
