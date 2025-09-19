@@ -4,7 +4,7 @@ pandas==2.3.2
 scikit-learn==1.5.2
 scipy==1.16.1
 joblib==1.5.1
-imbalanced-learn==0.12.3  # instead of imblearn==0.0
+imbalanced-learn==0.12.3
 
 # Models
 xgboost==2.1.2
@@ -17,10 +17,9 @@ matplotlib==3.10.5
 
 # API
 flask==3.1.2
+gunicorn==23.0.0   # needed for deployment
 
 # Utilities
 requests==2.32.3
-
-#AI
 python-dotenv
-huggingface_hub
+huggingface_hub==0.24.6
