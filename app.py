@@ -1,44 +1,39 @@
-from flask import Flask, request, jsonify, send_from_directory
-import joblib
 import os
-import numpy as np
-import pandas as pd
-from dotenv import load_dotenv
-from huggingface_hub import InferenceClient
 import json
 import re
-import traceback
+import pandas as pd
+from dotenv import load_dotenv
+from flask import Flask, request, jsonify, send_from_directory
+from huggingface_hub import InferenceClient
+import joblib
 
 # --- Load environment variables ---
 load_dotenv()
 HF_API_KEY = os.getenv("HF_API_KEY")
+if not HF_API_KEY:
+    raise ValueError("HF_API_KEY not found in .env file")
 
-# --- Hugging Face client (GPT-like model) ---
-hf_client = None
-if HF_API_KEY:
-    try:
-        hf_client = InferenceClient(api_key=HF_API_KEY, timeout=120)
-    except Exception as e:
-        print("⚠️ Hugging Face client init failed:", e)
+# --- Initialize Hugging Face client ---
+client = InferenceClient(api_key=HF_API_KEY, timeout=120)
 
+# --- Flask app setup ---
 APP_DIR = os.path.dirname(__file__)
 MODEL_PATH = os.path.join(APP_DIR, "models", "model.pkl")
-
 app = Flask(__name__, static_folder="static", static_url_path="/static")
 
+# --- Load local ML model ---
 def load_model():
     if os.path.exists(MODEL_PATH):
-        return joblib.load(MODEL_PATH)
+        try:
+            return joblib.load(MODEL_PATH)
+        except Exception as e:
+            print("❌ Failed to load local model:", e)
     return None
 
 model = load_model()
 
-@app.route("/")
-def index():
-    return send_from_directory("static", "index.html")
-
+# --- Build input DataFrame ---
 def _build_input_df(data):
-    """Builds a 1-row DataFrame from incoming JSON. Raises ValueError on bad input."""
     try:
         return pd.DataFrame([{
             "birth_weight": float(data.get("birth_weight")),
@@ -51,78 +46,85 @@ def _build_input_df(data):
     except Exception as e:
         raise ValueError(f"Invalid input format or missing field: {e}")
 
-# --- GPT-powered survival plan generator ---
-def generate_survival_plan_gpt(features):
-    if not hf_client:
-        return {"error": "Hugging Face client not initialized. Check HF_API_KEY."}
+# --- Fallback survival plan ---
+def generate_fallback_plan():
+    return {
+        "risk_level": "high",
+        "years": {
+            "Year 0-1": ["Doctor visits", "Vaccinations", "Monitor growth and nutrition"],
+            "Year 1-2": ["Regular checkups", "Balanced diet", "Monitor development milestones"],
+            "Year 2-3": ["Speech and motor skill support", "Vaccinations update", "Nutritional supplements if needed"],
+            "Year 3-4": ["School readiness assessment", "Preventive health checks", "Encourage physical activity"],
+            "Year 4-5": ["Annual pediatric screening", "Vaccinations", "Healthy lifestyle counseling"]
+        },
+        "warning": "Used fallback plan due to HF API failure or parsing error."
+    }
+
+# --- HF chat-based survival plan with guaranteed non-empty years ---
+def generate_survival_plan_hf(features):
+    if not HF_API_KEY:
+        return generate_fallback_plan()
 
     baby_info = ", ".join([f"{k}: {v}" for k, v in features.items()])
     messages = [
-        {"role": "system", "content": "You are a medical AI assistant. Return ONLY valid JSON with keys: risk_level (string) and years (dict of year: [recommendations])."},
-        {"role": "user", "content": f"Based on this data: {baby_info}, generate the JSON survival plan."}
+        {
+            "role": "system",
+            "content": (
+                "You are a world-class pediatric healthcare advisor. "
+                "Provide a 5-year survival plan ONLY in JSON format. "
+                "Keys: 'Year 0-1', 'Year 1-2', 'Year 2-3', 'Year 3-4', 'Year 4-5'. "
+                "Each key must be an array of 3–5 actionable steps. "
+                "Do NOT include explanations, calculations, or extra text. "
+                "If uncertain, output placeholder steps."
+            )
+        },
+        {"role": "user", "content": f"Generate a 5-year survival plan for a child with these features: {baby_info}"}
     ]
 
     try:
-        response = hf_client.chat_completion(
-            model="mistralai/Mistral-7B-Instruct-v0.3",
+        response = client.chat_completion(
+            model="HuggingFaceH4/zephyr-7b-beta",
             messages=messages,
-            max_tokens=400,
-            temperature=0.2,
+            max_tokens=500
         )
 
-        raw = response.choices[0].message["content"].strip()
-        #print("\n🤖 Raw HuggingFace response:\n", raw, "\n")  # debug log
+        raw_text = response.choices[0].message["content"]
 
-        # --- Clean JSON fences ---
-        if raw.startswith("```"):
-            raw = re.sub(r"^```(?:json)?", "", raw, flags=re.I).strip()
-            raw = re.sub(r"```$", "", raw).strip()
-
-        # Extract JSON only
-        match = re.search(r"\{.*\}", raw, flags=re.S)
-        if not match:
-            raise ValueError(f"No JSON detected. Got: {raw[:200]}...")
-
-        json_str = match.group(0)
-
-        # --- Attempt strict parse ---
+        # --- Extract JSON if possible ---
+        plan_json = {}
         try:
-            parsed = json.loads(json_str)
-        except json.JSONDecodeError:
-            # 🔧 Relax parsing: remove trailing commas
-            cleaned = re.sub(r",\s*([\]}])", r"\1", json_str)
-            parsed = json.loads(cleaned)
+            match = re.search(r"\{.*\}", raw_text, flags=re.S)
+            if match:
+                plan_json = json.loads(match.group(0))
+        except:
+            pass
 
-        # Ensure years is dict of lists
-        fixed_years = {}
-        for k, v in parsed.get("years", {}).items():
-            if isinstance(v, list):
-                fixed_years[k] = v
+        # --- Ensure each year has meaningful steps ---
+        expected_keys = ["Year 0-1", "Year 1-2", "Year 2-3", "Year 3-4", "Year 4-5"]
+        default_steps = [
+            ["Doctor visits", "Vaccinations", "Monitor growth and nutrition"],
+            ["Checkups", "Balanced diet", "Development monitoring"],
+            ["Speech/motor support", "Vaccination updates", "Nutritional supplements"],
+            ["School readiness", "Preventive health checks", "Physical activity encouragement"],
+            ["Annual pediatric screening", "Vaccinations", "Healthy lifestyle guidance"]
+        ]
+
+        cleaned_plan = {}
+        for i, key in enumerate(expected_keys):
+            val = plan_json.get(key)
+            if isinstance(val, list) and len(val) > 0:
+                cleaned_plan[key] = val
             else:
-                fixed_years[k] = [v]
+                # Use default steps if model output is missing or invalid
+                cleaned_plan[key] = default_steps[i]
 
-        return {
-            "risk_level": parsed.get("risk_level", "unknown"),
-            "years": fixed_years
-        }
+        return {"risk_level": "high", "years": cleaned_plan}
 
     except Exception as e:
-        print("❌ GPT survival plan error:", str(e))
-        traceback.print_exc()
+        print("❌ HF API Error:", e)
+        return generate_fallback_plan()
 
-        return {
-            "risk_level": "high",
-            "years": {
-                "Year 0-1": ["Doctor visits", "Vaccinations"],
-                "Year 1-2": ["Growth monitoring", "Nutrition check"],
-                "Year 2-3": ["Speech & motor skills"],
-                "Year 3-4": ["School readiness"],
-                "Year 4-5": ["Annual screening"]
-            },
-            "warning": f"Used fallback due to parsing error: {e}"
-        }
-
-# ✅ Survival plan selector
+# --- Survival plan selector ---
 def survival_plan(prediction, features=None):
     if int(prediction) == 0:
         return {
@@ -130,16 +132,21 @@ def survival_plan(prediction, features=None):
             "message": "Low risk. Continue preventive care: vaccines, nutrition, safe environment."
         }
     else:
-        if features:
-            return generate_survival_plan_gpt(features)
+        if features and HF_API_KEY:
+            return generate_survival_plan_hf(features)
         else:
-            return {"risk_level": "high", "message": "No features available for GPT generation."}
+            return generate_fallback_plan()
+
+# --- Flask routes ---
+@app.route("/")
+def index():
+    return send_from_directory("static", "index.html")
 
 @app.route("/api/predict", methods=["POST"])
 def predict_api():
     global model
     if model is None:
-        return jsonify({"error": "Model not found. Please run train_model.py to create models/model.pkl"}), 500
+        return jsonify({"error": "Local model not found. Please train it or rely on HF_API_KEY."}), 500
 
     data = request.get_json(silent=True)
     if not data:
@@ -150,31 +157,25 @@ def predict_api():
     except ValueError as e:
         return jsonify({"error": "Invalid input format", "details": str(e)}), 400
 
-    prob = None
-    if hasattr(model, "predict_proba"):
-        prob = float(model.predict_proba(df)[:, 1][0])
-
+    prob = float(model.predict_proba(df)[:, 1][0]) if hasattr(model, "predict_proba") else None
     pred = int(model.predict(df)[0])
     features = df.iloc[0].to_dict()
-    #print("🍼 User features:", features)  # debug log
 
     plan_obj = survival_plan(pred, features)
 
-    response = {
+    return jsonify({
         "mortality_risk_probability": prob,
         "mortality_prediction": pred,
         "interpretation": "1 means higher predicted risk, 0 means lower predicted risk",
         "survival_plan": plan_obj,
         "debug": {"branch": "high" if pred == 1 else "low"}
-    }
-    return jsonify(response)
+    })
 
-# ✅ New wrapper so frontend calling `/predict` works too
 @app.route("/predict", methods=["POST"])
 def predict_alias():
     return predict_api()
 
-# (accuracy & explain endpoints remain unchanged)...
-
+# --- Run server ---
 if __name__ == "__main__":
+    print("🚀 Starting Child Mortality API server on http://0.0.0.0:8000 ...")
     app.run(host="0.0.0.0", port=8000, debug=True)
