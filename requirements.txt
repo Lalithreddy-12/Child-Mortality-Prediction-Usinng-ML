@@ -24,7 +24,3 @@ requests==2.32.3
 #AI
 python-dotenv
 huggingface_hub
-
-torch
-transformers
-accelerate

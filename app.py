@@ -177,5 +177,5 @@ def predict_alias():
 
 # --- Run server ---
 if __name__ == "__main__":
-    print("🚀 Starting Child Mortality API server on http://0.0.0.0:8000 ...")
+    print("🚀 Starting Child Mortality API server on http://127.0.0.1:8000 ")
     app.run(host="0.0.0.0", port=8000, debug=True)
