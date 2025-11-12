@@ -26,7 +26,7 @@ This is a minimal demo application inspired by the project paper you provided. I
    ```bash
    python app.py
    ```
-4. Open your browser at `http://127.0.0.1:5000` and try the demo.
+4. Open your browser at `http://127.0.0.1:8000` and try the demo.
 
 ## Notes and next steps
 - Replace synthetic data with a real dataset (e.g., DHS, WHO) after ensuring permissions and privacy compliance.
